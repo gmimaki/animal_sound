@@ -11,28 +11,28 @@ services:
     tty: true
     ports:
       - 3000:3000
-    environment:
-      POSTGRES_HOST: postgresql
-      POSTGRES_PORT: 5432
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: animal_sound
-    depends_on:
-      - postgresql
-  postgresql:
-    container_name: postgresql
-    build:
-      context: .
-      dockerfile: docker/postgresql/Dockerfile
-    restart: always
-    ports:
-      - 5432:5432
-    volumes:
-      - db-store:/var/lib/postgresql/data
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: animal_sound
+  #  environment:
+  #    POSTGRES_HOST: postgresql
+  #    POSTGRES_PORT: 5432
+  #    POSTGRES_USER: user
+  #    POSTGRES_PASSWORD: postgres
+  #    POSTGRES_DB: animal_sound
+  #  depends_on:
+  #    - postgresql
+  #postgresql:
+  #  container_name: postgresql
+  #  build:
+  #    context: .
+  #    dockerfile: docker/postgresql/Dockerfile
+  #  restart: always
+  #  ports:
+  #    - 5432:5432
+  #  volumes:
+  #    - db-store:/var/lib/postgresql/data
+  #  environment:
+  #    POSTGRES_USER: user
+  #    POSTGRES_PASSWORD: postgres
+  #    POSTGRES_DB: animal_sound
 
-volumes:
-  db-store:
+#volumes:
+#  db-store:
