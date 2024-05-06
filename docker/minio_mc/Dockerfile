@@ -1,0 +1,1 @@
+FROM minio/mc:RELEASE.2024-04-29T09-56-05Z.fips
