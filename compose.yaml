@@ -63,6 +63,32 @@ services:
         exit 0;
       "
 
+  dynamodb_local:
+    container_name: dynamodb_local
+    build:
+      context: .
+      dockerfile: docker/dynamodb_local/Dockerfile
+    user: root
+    ports:
+      - 8000:8000
+    volumes:
+      - dynamodb-store:/data
+    command: -jar DynamoDBLocal.jar -sharedDb -dbPath /data -optimizeDbBeforeStartup
+
+  dynamodb_admin:
+    container_name: dynamodb_admin
+    build:
+      context: .
+      dockerfile: docker/dynamodb_admin/Dockerfile
+    ports:
+      - 8001:8001
+    tty: true
+    depends_on:
+      - dynamodb_local
+    environment:
+      DYNAMO_ENDPOINT: http://dynamodb_local:8000
+
 volumes:
   minio-store:
+  dynamodb-store:
 #  db-store:

@@ -1,0 +1,1 @@
+FROM aaronshaf/dynamodb-admin:4.3.0
