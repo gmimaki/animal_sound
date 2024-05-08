@@ -45,8 +45,8 @@ services:
     volumes:
       - minio-store:/var/lib/minio/data
     environment:
-      MINIO_ACCESS_KEY: minio_root
-      MINIO_SECRET_KEY: minio_password
+      MINIO_ROOT_USER: minio_root
+      MINIO_ROOT_PASSWORD: minio_password
     command: server --console-address ":9090" /var/lib/minio/data
 
   minio_mc:
