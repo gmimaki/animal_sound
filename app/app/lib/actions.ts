@@ -5,6 +5,7 @@ import { Adjective, Animal } from "./definitions";
 import axios from "axios";
 import { v4 as uuidv4 } from 'uuid';
 import { S3Client, PutObjectCommand, PutObjectCommandInput } from "@aws-sdk/client-s3";
+import { BatchWriteItemCommand, DynamoDBClient, PutItemCommand, PutItemCommandInput, PutItemInput, WriteRequest } from "@aws-sdk/client-dynamodb";
 
 const openai = new OpenAI();
 
@@ -37,6 +38,7 @@ export async function generateImage(
     }
 }
 
+// TODO 抽象に依存させたい
 const s3Client = new S3Client({
     region: "ap-northeast-1",
     credentials: {
@@ -50,7 +52,9 @@ const s3Client = new S3Client({
     }),
 })
 
-async function saveImage(url: string) {
+const dynamoClient = new DynamoDBClient({ region: "ap-northeast-1" });
+
+async function saveImage(animal: Animal, adjectives: Adjective[], url: string) {
     try {
         // URLからダウンロード
         const response = await axios.get(url, { responseType: 'arraybuffer' } );
@@ -66,7 +70,18 @@ async function saveImage(url: string) {
         const s3PutCommand = new PutObjectCommand(s3PutInput)
         await s3Client.send(s3PutCommand)
 
-        // DynamoDB保存 TODO
+        // Dynamo保存　
+        const dynamoTable = "GeneratedImages"
+        const dynamoKey = `${animal}_${adjectives.sort().join("_")}`
+        const putItemInput: PutItemInput = {
+            TableName: dynamoTable,
+            Item: {
+                Key: { S: dynamoKey },
+                Url: { S: url },
+            }
+        }
+        const dynamoCommand = new PutItemCommand(putItemInput)
+        dynamoClient.send(dynamoCommand)
     } catch (error) {
         console.error(error)
     }
