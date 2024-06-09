@@ -59,7 +59,7 @@ services:
     entrypoint: >
       /bin/sh -c "
         /usr/bin/mc alias set minio http://minio:9000 minio_root minio_password;
-        /usr/bin/mc mb minio/sample;
+        /usr/bin/mc mb minio/generated-images;
         exit 0;
       "
 
