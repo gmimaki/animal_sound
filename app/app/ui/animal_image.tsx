@@ -5,7 +5,7 @@ import { generateImage } from "../lib/actions"
 import { Adjective, Animal } from "../lib/definitions"
 import Image from 'next/image';
 
-export default async function AnimalImage() {
+export default function AnimalImage() {
     //const imageUrl = await generateImage(Animal.Lion, [Adjective.Beautiful]);
     // TODO Client Componentを返す
     //return <img src={imageUrl} alt="Generated Image" />;
