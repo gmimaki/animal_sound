@@ -34,5 +34,5 @@ export default function AnimalImage() {
         return <div>Loading...</div>;
     }
 
-    return <Image src={imageUrl} alt="Generated Image" />
+    return <Image src={imageUrl} alt="Generated Image" width={280} height={180} />
 }

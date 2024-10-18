@@ -13,24 +13,26 @@ export async function generateImage(
     animal: Animal,
     adjectives: Adjective[]
 ): Promise<string> {
-    return "https://oaidalleapiprodscus.blob.core.windows.net/private/org-DIUSC9XbPpbbwgWi8ovCuU3A/user-YfGltMEVqEE3FnXW7iGx8hcP/img-LCfn6wCyu7YifbX70As5XBTO.png?st=2024-05-11T04%3A28%3A38Z&se=2024-05-11T06%3A28%3A38Z&sp=r&sv=2021-08-06&sr=b&rscd=inline&rsct=image/png&skoid=6aaadede-4fb3-4698-a8f6-684d7786b067&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2024-05-10T22%3A23%3A30Z&ske=2024-05-11T22%3A23%3A30Z&sks=b&skv=2021-08-06&sig=VCLkjBuIhDRkrO4jKL7c9knG%2B7GwAlOJx3XFheUncyM%3D";
     try {
+        /*
         const response = await openai.images.generate({
             model: "dall-e-3",
             prompt: `${adjectives.join("、")}${animal}`,
             n: 1,
             size: "1024x1024",
         });
+        */
 
-        if (response.data && response.data.length > 0) {
-            const imageUrl = response.data[0].url;
+        //if (response.data && response.data.length > 0) {
+            //const imageUrl = response.data[0].url;
+            const imageUrl = "http://localhost:3000/_next/image?url=https%3A%2F%2Foaidalleapiprodscus.blob.core.windows.net%2Fprivate%2Forg-DIUSC9XbPpbbwgWi8ovCuU3A%2Fuser-YfGltMEVqEE3FnXW7iGx8hcP%2Fimg-n99yslrkVbsilFuwZRK2GdQS.png%3Fst%3D2024-10-18T13%253A15%253A45Z%26se%3D2024-10-18T15%253A15%253A45Z%26sp%3Dr%26sv%3D2024-08-04%26sr%3Db%26rscd%3Dinline%26rsct%3Dimage%2Fpng%26skoid%3Dd505667d-d6c1-4a0a-bac7-5c84a87759f8%26sktid%3Da48cca56-e6da-484e-a814-9c849652bcb3%26skt%3D2024-10-17T23%253A22%253A59Z%26ske%3D2024-10-18T23%253A22%253A59Z%26sks%3Db%26skv%3D2024-08-04%26sig%3DgLr4jjPX08h2mnGiGYTbtpsbotgmWwYvaBi8Y7FW0G4%253D&w=640&q=75"
             if (imageUrl) {
                 console.log(imageUrl)
                 /* バックグラウンドで画像保存 */
-                saveImage(imageUrl)
+                saveImage(animal, adjectives, imageUrl)
                 return imageUrl;
             }
-        }
+        //}
 
         throw new Error("画像の生成に失敗しました。");
     } catch (error) {
@@ -46,7 +48,7 @@ const s3Client = new S3Client({
         secretAccessKey: process.env.SECRET_ACCESS_KEY || "",
     },
     /* localの場合はMinIOに必要な設定を記述 */
-    ...(process.env.env === "local" && {
+    ...(process.env.ENV=== "local" && {
         endpoint: process.env.MINIO_ENDPOINT || "",
         forcePathStyle: true,
     }),
@@ -71,6 +73,7 @@ async function saveImage(animal: Animal, adjectives: Adjective[], url: string) {
         await s3Client.send(s3PutCommand)
 
         // Dynamo保存　
+        // TODO localだとS3とACCESS_KEY_IDなどが異なり保存できない
         const dynamoTable = "GeneratedImages"
         const dynamoKey = `${animal}_${adjectives.sort().join("_")}`
         const putItemInput: PutItemInput = {
