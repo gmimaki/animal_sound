@@ -1,2 +1,5 @@
 app/.next
 app/node_modules
+app/.env
+terraform/environments/local/.terraform
+terraform/environments/local/terraform.tfstate

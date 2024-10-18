@@ -34,5 +34,61 @@ services:
   #    POSTGRES_PASSWORD: postgres
   #    POSTGRES_DB: animal_sound
 
-#volumes:
+  minio:
+    container_name: minio
+    build:
+      context: .
+      dockerfile: docker/minio/Dockerfile
+    ports:
+      - 9000:9000 # データAPI
+      - 9090:9090 # 管理画面
+    volumes:
+      - minio-store:/var/lib/minio/data
+    environment:
+      MINIO_ROOT_USER: minio_root
+      MINIO_ROOT_PASSWORD: minio_password
+    command: server --console-address ":9090" /var/lib/minio/data
+
+  minio_mc:
+    container_name: minio_mc
+    build:
+      context: .
+      dockerfile: docker/minio_mc/Dockerfile
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+        /usr/bin/mc alias set minio http://minio:9000 minio_root minio_password;
+        /usr/bin/mc mb minio/generated-images;
+        exit 0;
+      "
+
+  dynamodb_local:
+    container_name: dynamodb_local
+    build:
+      context: .
+      dockerfile: docker/dynamodb_local/Dockerfile
+    user: root
+    ports:
+      - 8000:8000
+    volumes:
+      - dynamodb-store:/data
+    command: -jar DynamoDBLocal.jar -sharedDb -dbPath /data -optimizeDbBeforeStartup
+
+  dynamodb_admin:
+    container_name: dynamodb_admin
+    build:
+      context: .
+      dockerfile: docker/dynamodb_admin/Dockerfile
+    ports:
+      - 8001:8001
+    tty: true
+    depends_on:
+      - dynamodb_local
+    environment:
+      DYNAMO_ENDPOINT: http://dynamodb_local:8000
+
+volumes:
+  minio-store:
+  dynamodb-store:
 #  db-store:
