@@ -16,8 +16,9 @@ export default function AnimalImage() {
         const fetchImage = async() => {
             try {
                 // TODO 引数
-                const url = await generateImage(Animal.Lion, [Adjective.Beautiful]);
-                setImageUrl(url);
+                const res = await generateImage(Animal.Lion, [Adjective.Beautiful]);
+                const imageUrl = `data:image/png;base64,${res}`;
+                setImageUrl(imageUrl);
             } catch (err) {
                 setError(err as Error);
             }
