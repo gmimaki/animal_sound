@@ -7,8 +7,10 @@ export default async function AnimalImages() {
     return (
         <>
             <AnimalImage />
+            {/*
             <AnimalImage />
             <AnimalImage />
+            */}
         </>
     );
 }

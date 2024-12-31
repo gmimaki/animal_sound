@@ -1,10 +1,9 @@
 'use server';
 
 import { Adjective, Animal } from "./definitions";
-import axios from "axios";
 import { v4 as uuidv4 } from 'uuid';
-import { S3Client, PutObjectCommand, PutObjectCommandInput } from "@aws-sdk/client-s3";
-import { BatchWriteItemCommand, DynamoDBClient, PutItemCommand, PutItemCommandInput, PutItemInput, WriteRequest } from "@aws-sdk/client-dynamodb";
+import { S3Client, PutObjectCommand, PutObjectCommandInput, GetObjectCommand } from "@aws-sdk/client-s3";
+import { DynamoDBClient, GetItemCommand, PutItemCommand, PutItemInput } from "@aws-sdk/client-dynamodb";
 import { BedrockRuntimeClient, InvokeModelCommand } from "@aws-sdk/client-bedrock-runtime";
 
 const bedrockClient = new BedrockRuntimeClient({
@@ -17,8 +16,14 @@ const bedrockClient = new BedrockRuntimeClient({
 
 export async function generateImage(
     animal: Animal,
-    adjectives: Adjective[]
+    adjectives: Adjective[],
+    now: Date
 ): Promise<string> {
+    const exists = await existsImage(animal, adjectives, now);
+    if (exists) {
+        return exists;
+    }
+
     const bedrockCommand = new InvokeModelCommand({
         modelId: "amazon.nova-canvas-v1:0",
         body: JSON.stringify({
@@ -42,20 +47,10 @@ export async function generateImage(
     try {
         const response = await bedrockClient.send(bedrockCommand);
         const imageDataStr = JSON.parse(new TextDecoder().decode(response.body)).images[0];
-        return imageDataStr;
-        //if (response.data && response.data.length > 0) {
-            //const imageUrl = response.data[0].url;
-            /*
-            const imageUrl = "http://localhost:3000/_next/image?url=https%3A%2F%2Foaidalleapiprodscus.blob.core.windows.net%2Fprivate%2Forg-DIUSC9XbPpbbwgWi8ovCuU3A%2Fuser-YfGltMEVqEE3FnXW7iGx8hcP%2Fimg-n99yslrkVbsilFuwZRK2GdQS.png%3Fst%3D2024-10-18T13%253A15%253A45Z%26se%3D2024-10-18T15%253A15%253A45Z%26sp%3Dr%26sv%3D2024-08-04%26sr%3Db%26rscd%3Dinline%26rsct%3Dimage%2Fpng%26skoid%3Dd505667d-d6c1-4a0a-bac7-5c84a87759f8%26sktid%3Da48cca56-e6da-484e-a814-9c849652bcb3%26skt%3D2024-10-17T23%253A22%253A59Z%26ske%3D2024-10-18T23%253A22%253A59Z%26sks%3Db%26skv%3D2024-08-04%26sig%3DgLr4jjPX08h2mnGiGYTbtpsbotgmWwYvaBi8Y7FW0G4%253D&w=640&q=75"
-            if (imageUrl) {
-                console.log(imageUrl)
-                // バックグラウンドで画像保存
-                saveImage(animal, adjectives, imageUrl)
-                return imageUrl;
-            }
-                */
-        //}
-
+        if (imageDataStr) {
+            saveImage(animal, adjectives, imageDataStr, now);
+            return imageDataStr;
+        }
         throw new Error("画像の生成に失敗しました。");
     } catch (error) {
         throw error;
@@ -66,40 +61,70 @@ export async function generateImage(
 const s3Client = new S3Client({
     region: "ap-northeast-1",
     credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID_US || "",
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY_US || "",
     },
-    /* localの場合はMinIOに必要な設定を記述 */
+    /* localの場合はMinIOに必要な設定を記述
     ...(process.env.ENV=== "local" && {
         endpoint: process.env.MINIO_ENDPOINT || "",
         forcePathStyle: true,
     }),
+    */
 })
 
 const dynamoClient = new DynamoDBClient({
     region: "ap-northeast-1",
     credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || ""
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID_US || "",
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY_US || ""
     },
+    /*
     ...(process.env.ENV=== "local" && {
         endpoint: process.env.DYNAMODB_ENDPOINT || "",
     }),
+    */
 });
 
-// TODO バックグラウンドで画像保存
-async function saveImage(animal: Animal, adjectives: Adjective[], url: string) {
-    try {
-        // URLからダウンロード
-        const response = await axios.get(url, { responseType: 'arraybuffer' } );
-        const resImage = Buffer.from(response.data, 'binary');
+const existsImage = async (animal: Animal, adjectives: Adjective[], now: Date): Promise<string> => {
+    const dynamoTable = "GeneratedImages"
+    const dynamoKey = `${animal}_${adjectives.sort().join("_")}`
+    const dynamoCommand = new GetItemCommand({
+        TableName: dynamoTable,
+        Key: {
+            "Key": {
+                S: dynamoKey,
+            },
+        },
+    });
 
+    const res = await dynamoClient.send(dynamoCommand);
+    if (!res.Item) {
+        return "";
+    }
+
+    // TODO 日付確認して、N日以内か確認
+
+    const s3Bucket = res.Item.S3Bucket.S;
+    const s3Key = res.Item.S3Key.S;
+    const s3Command = new GetObjectCommand({
+        Bucket: s3Bucket,
+        Key: s3Key,
+    });
+    const s3res = await s3Client.send(s3Command);
+    const s3TextContent = await s3res.Body?.transformToString();
+
+    return s3TextContent || "";
+};
+
+// バックグラウンドで画像保存
+async function saveImage(animal: Animal, adjectives: Adjective[], imageBase64: string, now: Date) {
+    try {
         // S3保存
-        const fileName = `${Date.now()}_${uuidv4()}.png` // TODO 必ずpngなのか？
+        const fileName = `${now.getTime()}_${uuidv4()}.txt`
         const s3PutInput: PutObjectCommandInput = {
             Bucket: process.env.S3_BUCKET_NAME_IMAGE,
-            Key: `generated-images/${fileName}`,
-            Body: resImage,
+            Key: fileName,
+            Body: imageBase64,
         }
         const s3PutCommand = new PutObjectCommand(s3PutInput)
         await s3Client.send(s3PutCommand)
@@ -111,8 +136,9 @@ async function saveImage(animal: Animal, adjectives: Adjective[], url: string) {
             TableName: dynamoTable,
             Item: {
                 Key: { S: dynamoKey },
-                Url: { S: url },
-                RegisteredAt: { S: new Date().getTime().toString() }
+                S3Bucket: { S: process.env.S3_BUCKET_NAME_IMAGE || "" },
+                S3Key: { S: fileName },
+                RegisteredAt: { S: now.getTime().toString() }
             },
         }
         const dynamoCommand = new PutItemCommand(putItemInput)
