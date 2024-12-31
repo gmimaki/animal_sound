@@ -44,8 +44,8 @@ export async function generateImage(
 const s3Client = new S3Client({
     region: "ap-northeast-1",
     credentials: {
-        accessKeyId: process.env.ACCESS_KEY_ID || "",
-        secretAccessKey: process.env.SECRET_ACCESS_KEY || "",
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || "",
     },
     /* localの場合はMinIOに必要な設定を記述 */
     ...(process.env.ENV=== "local" && {
@@ -54,7 +54,16 @@ const s3Client = new S3Client({
     }),
 })
 
-const dynamoClient = new DynamoDBClient({ region: "ap-northeast-1" });
+const dynamoClient = new DynamoDBClient({
+    region: "ap-northeast-1",
+    credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID || "",
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || ""
+    },
+    ...(process.env.ENV=== "local" && {
+        endpoint: process.env.DYNAMODB_ENDPOINT || "",
+    }),
+});
 
 async function saveImage(animal: Animal, adjectives: Adjective[], url: string) {
     try {
@@ -73,7 +82,6 @@ async function saveImage(animal: Animal, adjectives: Adjective[], url: string) {
         await s3Client.send(s3PutCommand)
 
         // Dynamo保存　
-        // TODO localだとS3とACCESS_KEY_IDなどが異なり保存できない
         const dynamoTable = "GeneratedImages"
         const dynamoKey = `${animal}_${adjectives.sort().join("_")}`
         const putItemInput: PutItemInput = {
@@ -81,7 +89,8 @@ async function saveImage(animal: Animal, adjectives: Adjective[], url: string) {
             Item: {
                 Key: { S: dynamoKey },
                 Url: { S: url },
-            }
+                RegisteredAt: { S: new Date().getTime().toString() }
+            },
         }
         const dynamoCommand = new PutItemCommand(putItemInput)
         dynamoClient.send(dynamoCommand)
